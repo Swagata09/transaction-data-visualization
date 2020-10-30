@@ -2,7 +2,7 @@
 This repository will demonstrate how to connect SQLite database with node.js application to import and aggregate data
 
 
-**Node.js | SQLite | Python**
+**Node.js | SQLite | Python | Power BI**
 
 ## Problem Statement
 Create scripts that will process the CSV files, insert data into table and use that data in next script for performing various aggregations on it.
@@ -35,7 +35,7 @@ following information:
 - Running the script should look like :
 node aggregateTransactions.js 2020-08-01
 
-## Getting Started
+## Getting Started with NodeJS
 
 ###### Installation
 `npm install sqlite3`
@@ -174,6 +174,45 @@ db.serialize(function() {
 Execute script on the command line: </br>
 
 `node aggregateTransactions.js 2020-08-01`
+
+## Possible Solutions
+
+## 1.NodeJS
+
+Following are the links for scripts of NodeJS: <br />
+[tableCreation.js](https://github.com/Swagata09/transaction-data-visualization/blob/main/tableCreation.js)  <br />
+[importTransaction.js](https://github.com/Swagata09/transaction-data-visualization/blob/main/importTransactions.js) <br />
+[aggregateTransactions.js](https://github.com/Swagata09/transaction-data-visualization/blob/main/aggregateTransactions.js) <br />
+
+## 2.Python
+Here is the link for Jupyter notebook in which alternate python solution has been enclosed. <br />
+[Python Code](https://github.com/Swagata09/transaction-data-visualization/blob/main/Python_Code.ipynb)
+
+## 3.Microsoft Power BI
+I have visualize this report in Microsoft Power BI to represent the information in more user friendly way. A non-technical user can also read this report and understand the insights of the data. <br />
+This is the link for Power BI report <br />
+[Power BI Report](https://github.com/Swagata09/transaction-data-visualization/blob/main/PowerBI_Desktop_Report.pbix)  <br />
+
+Attaching some screenshots for better understanding <br />
+
+The final report will look like this.<br>
+
+![Final Report](https://github.com/Swagata09/transaction-data-visualization/blob/main/screenshots-powerBI-report/final_report.PNG)  <br />
+
+Visualization for 'Number of operations and revenue per User per Day': <br />
+
+![Number of operations and revenue per User per Day](https://github.com/Swagata09/transaction-data-visualization/blob/main/screenshots-powerBI-report/no_of_operations_and_revenue_per_User_per_Day.PNG) <br />
+
+Visualization for 'Number of operations and revenue per User per Hour' <br />
+
+![Number of operations and revenue per User per Hour](https://github.com/Swagata09/transaction-data-visualization/blob/main/screenshots-powerBI-report/no_of%20_perations_and_revenue_per_User_per_Hour.PNG)  <br />
+
+Expanding this report to see per user per hour activity <br />
+
+![Number of operations and revenue per User per Hour Expanded](https://github.com/Swagata09/transaction-data-visualization/blob/main/screenshots-powerBI-report/no_of%20_perations_and_revenue_per_User_per_Hour_expanded.PNG)
+
+
+
 
 ## Possible Flaws in this workflow:
 
