@@ -58,14 +58,14 @@ The sqlite3.Database() returns a Database object and opens the database connecti
 Then, create all the required tables in this script **tableCreation.js**. <br />
 
 ```var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database('swag.db');
+var db = new sqlite3.Database('hexonet.db');
 
 db.serialize(function() {
-    db.run("CREATE TABLE tran (transactionId INT, user TEXT, datetime NUMERIC, operation TEXT, quantity INT, unitPrice NUMERIC)");
+    db.run("CREATE TABLE tran (transactionId INT PRIMARY KEY, user TEXT, datetime NUMERIC, operation TEXT, quantity INT, unitPrice NUMERIC,tranDate TEXT,fileName TEXT)");
 
-    db.run("CREATE TABLE Agg_User_Per_Day (user TEXT, No_of_Operations INTEGER, Revenue NUMERIC)");
+    db.run("CREATE TABLE Agg_User_Per_Day (date TEXT,user TEXT, No_of_Operations INTEGER, Revenue NUMERIC)");
 
-    db.run("CREATE TABLE Agg_User_Per_Hour (Hour TEXT,user TEXT, No_of_Operations INTEGER, Revenue NUMERIC)");
+    db.run("CREATE TABLE Agg_User_Per_Hour (date TEXT,hour TEXT,user TEXT, No_of_Operations INTEGER, Revenue NUMERIC)");
 });
 ```
 
@@ -76,29 +76,67 @@ This script **importTransactions.js** will include the logic for fetching the re
 
 ```
 var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database('swag.db');
+var db = new sqlite3.Database('hexonet.db');
+var dateFormat = require('dateformat');
 var args = process.argv;
 
 const csv = require('csv-parser');
 const fs = require('fs');
 
 db.serialize(function() {
+    
     fs.createReadStream(args[2])
     .pipe(csv())
     .on('data', (row) => {
-    console.log(row['transactionId'],row['user'],row['datetime'],row['operation'],row['quantity'],row['unitPrice']);
-   
-        var stmnt = db.prepare("INSERT INTO tran VALUES(?,?,?,?,?,?)");
-        stmnt.run(row['transactionId'],row['user'],row['datetime'],row['operation'],row['quantity'],row['unitPrice'])
-        stmnt.finalize();   
-  })
-  db.each("SELECT * from tran ",function(err,row){
+  
+    var n = Number(row['datetime'])
+    var t1 = new Date(n)
+    var tranDate = t1.toISOString().replace(/T/, ' ').replace(/\..+/, '') 
+    
+    transactionId = row['transactionId']
+    user = row['user']
+    datetime = row['datetime']
+    operation = row['operation']
+    quantity = row['quantity']
+    unitPrice = row['unitPrice']
+    fileName = args[2]
+
+    console.log(row['transactionId'],row['user'],row['datetime'],row['operation'],row['quantity'],row['unitPrice'],tranDate,fileName);
+
+      let sql = `SELECT COUNT(*) as cnt FROM tran WHERE transactionId = ?`
+      db.all(sql, [row['transactionId']], (err, rows) => {
+        if (err) {
+        throw err;
+        }
+    rows.forEach((row) => {
+    console.log(row['cnt']); 
+    inputData = [user,datetime,operation,quantity,unitPrice,tranDate,fileName,transactionId]
+    console.log(inputData)
+
+      if (row['cnt'] == '1') {
+          
+          var stmnt = db.prepare("UPDATE tran SET user = ?, datetime = ?, operation = ?, quantity=?, unitPrice = ?,tranDate = ?, fileName = ? WHERE transactionId = ?");
+          stmnt.run(inputData)
+          stmnt.finalize();     
+      }
+      else{
+            var stmnt = db.prepare("INSERT INTO tran VALUES(?,?,?,?,?,?,?,?)");
+            stmnt.run(transactionId,user,datetime,operation,quantity,unitPrice,tranDate,fileName)
+            stmnt.finalize();
+      }   
+
+    });
+}); 
+    
+  db.each("SELECT count(*) from tran ",function(err,row){
     console.log(row);
 })
  
     .on('end', () => {
     console.log('CSV file successfully processed');
   });
+});
+
 });
 ```
 
@@ -107,26 +145,23 @@ Let's run the program as: <br />
 `node importTransactions.js transactions_2020-08-01.csv`  <br/>
 
 ###### Step 3: 
-**Create importTransactions.js**
+**Create aggregateTransactions.js**
 
-This script **importTransactions.js** will read the data from **tran** table created in previous step and aggregate data into two new tables that gives following information: <br />
+This script **aggregateTransactions.js** will read the data from **tran** table created in previous step and aggregate data into two new tables that gives following information: <br />
 - Aggregated by user / day: Number of operations and revenue per User per Day 
 - Aggregated by user / hour: Number of operations and revenue per User per Hour
 
 ```var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database('swag.db');
+var db = new sqlite3.Database('hexonet.db');
 var args = process.argv;
 
 db.serialize(function() {
     //Aggregated by user / day: Number of operations and revenue per User per Day
 
-    let sql = ` SELECT  user,
-                        count(operation) as No_of_Operations,
-                        quantity*unitPrice as Revenue 
-                FROM tran   
-                WHERE strftime('%Y-%m-%d', datetime / 1000, 'unixepoch') = ? 
-                GROUP BY user 
+    let sql = ` select substr(tranDate,0,11) as tranDate,user,count(operation) as No_of_Operations ,sum(quantity*unitPrice) as Revenue
+                from tran where substr(tranDate,0,11) = ? group by substr(tranDate,0,11),user
             `
+
     db.all(sql, [args[2]], (err, rows) => {
         if (err) {
         throw err;
@@ -134,40 +169,34 @@ db.serialize(function() {
     rows.forEach((row) => {
     console.log(row);
 
-    var stmnt = db.prepare("INSERT INTO Agg_User_Per_Day VALUES(?,?,?)");
-    stmnt.run(row['user'],row['No_of_Operations'],row['Revenue'])
+    var stmnt = db.prepare("INSERT INTO Agg_User_Per_Day VALUES(?,?,?,?)");
+    stmnt.run(row['tranDate'],row['user'],row['No_of_Operations'],row['Revenue'])
     stmnt.finalize();  
     });
 }); 
     db.each("SELECT * FROM Agg_User_Per_Day",function(err,row){
-        console.log(row);
+    console.log(row);
     });
 
     // Aggregated by user / hour: Number of operations and revenue per User per Hour
     
-    let sql = ` SELECT strftime('%Y-%m-%d %H:00:00', datetime / 1000, 'unixepoch') as datetime,
-                       user,
-                       count(operation) as No_of_Operations,
-                       quantity*unitPrice as Revenue
-                FROM tran
-                WHERE strftime('%Y-%m-%d', datetime / 1000, 'unixepoch')  = ?
-                GROUP BY strftime('%Y-%m-%d %H:00:00', datetime / 1000, 'unixepoch') ,user 
+    let sql1 = ` select substr(tranDate,0,11) as tranDate,substr(tranDate,12,2) as hour,user,count(operation) as No_of_Operations_Hr, sum(quantity*unitPrice) as                          RevenueHr from tran where substr(tranDate,0,11) = ?  group by substr(tranDate,0,11),user , substr(tranDate,12,2)  
                 `
-    db.all(sql, [args[2]], (err, rows) => {
+    db.all(sql1, [args[2]], (err, rows) => {
         if (err) {
         throw err;
         }
     rows.forEach((row) => {
-    console.log(row);
+    console.log(row); 
 
-    var stmnt = db.prepare("INSERT INTO Agg_User_Per_Hour VALUES(?,?,?,?)");
-    stmnt.run(row['datetime'],row['user'],row['No_of_Operations'],row['Revenue'])
+    var stmnt = db.prepare("INSERT INTO Agg_User_Per_Hour VALUES(?,?,?,?,?)");
+    stmnt.run(row['tranDate'],row['hour'],row['user'],row['No_of_Operations_Hr'],row['RevenueHr'])
     stmnt.finalize();  
     });
 }); 
     db.each("SELECT * FROM Agg_User_Per_Hour",function(err,row){
-        console.log(row);
-    });
+       console.log(row);
+    }); 
 });
 ```
 
@@ -216,10 +245,9 @@ Expanding this report to see per user per hour activity <br />
 
 ## Possible Flaws in this workflow:
 
-1. We have encorporated both insertion and selection logic in the same script. Hence, if we wish to see the same data multiple times, then there is a probability that duplicate records may get insert into the table every time. To avoid this, we can split these scripts into two and separate the insertion and selection logic. It will reduce the operation time and avoid duplicity.
-2. Further, if we want to prevent same file to get insert multiple times in the database, then we can store the filename and it's upload date-time in separate column and put validation on it.
-3. We can utilize available data in more detailed format and generate various reports like: 
-- Total revenue by each operation 
+1. Further, if we want to prevent same file to get insert multiple times in the database, then we can store the filename and it's upload date-time in separate column and put validation on it.
+2. We can utilize available data in more detailed format and generate various reports like:
+- Total revenue by each operation
 - No.of transactions per day
 
 ## Conclusion:
